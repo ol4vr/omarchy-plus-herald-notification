@@ -2,8 +2,6 @@
 
 A clean notification center for the Omarchy shell. Click the bell icon to browse recent notifications and active toasts, focus the source app, or dismiss items individually.
 
-If you enjoy using Herald, please consider leaving a ⭐.
-
 ![Herald Notification Center](preview.png)
 
 ## Features

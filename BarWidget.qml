@@ -43,7 +43,7 @@ BarWidget {
 
   function positionThresholdPopup() {
     if (!root.bar || !thresholdPopup.parent) {
-      thresholdPopup.x = -thresholdPopup.width - Style.space(4)
+      thresholdPopup.x = -thresholdPopup.width - Style.space(2)
       return
     }
     var widgetGlobal = root.mapToGlobal(0, 0)
@@ -54,9 +54,9 @@ BarWidget {
     var barRightThird = barGlobal.x + 2 * barWidth / 3
 
     if (widgetCenterX < barLeftThird) {
-      thresholdPopup.x = button.width + Style.space(4)
+      thresholdPopup.x = button.width + Style.space(2)
     } else if (widgetCenterX > barRightThird) {
-      thresholdPopup.x = -thresholdPopup.width - Style.space(4)
+      thresholdPopup.x = -thresholdPopup.width - Style.space(2)
     } else {
       var targetGlobalX = barGlobal.x + barWidth / 2 - thresholdPopup.width / 2
       thresholdPopup.x = targetGlobalX - widgetGlobal.x
