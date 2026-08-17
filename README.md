@@ -14,6 +14,17 @@ A clean notification center for the Omarchy shell. Click the bell icon to browse
 - **Clear all** with the header button or right-click the bar icon
 - Follows the active Omarchy theme colors
 
+## Easter Eggs
+
+The Herald has a few surprises hidden up its sleeve:
+
+- **Click the panel title:** Open the notification panel and repeatedly click the **"Notifications"** header. The Herald will cycle through alternative titles for the royal dispatch.
+- **The Threshold Mystery:** Let your notifications pile up and watch how the Herald reacts. Some things are best discovered by using it.
+
+*Found something else? It might be a feature, or it might be the Herald playing tricks.*
+
+This project is a work in progress — I'd be happy to receive suggestions for improvements.
+
 ## Install
 
 ```sh
@@ -26,7 +37,13 @@ Then restart the shell:
 omarchy restart shell
 ```
 
-By default the bell icon is placed in the **center** section of the bar. If it does not land immediately to the left of the date/clock, drag it there with the bar's built-in gesture (Adjust the index as needed depending on your other center widgets.)
+By default the bell icon is placed in the **center** section of the bar. If it does not land immediately to the left of the date/clock, drag it there with the bar's built-in gesture, or run:
+
+```sh
+omarchy bar move jesseburlamaque.herald-notification --section center --index 2
+```
+
+(Adjust the index as needed depending on your other center widgets.)
 
 ## Enable / Disable
 
@@ -40,8 +57,8 @@ omarchy > menu >  Disable Plugin > Herald Notification
 Or use the CLI:
 
 ```sh
-omarchy plugin enable herald-notification
-omarchy plugin disable herald-notification
+omarchy plugin enable jesseburlamaque.herald-notification
+omarchy plugin disable jesseburlamaque.herald-notification
 ```
 
 After enabling or disabling, restart the shell:
@@ -53,7 +70,7 @@ omarchy restart shell
 ## Remove
 
 ```sh
-omarchy plugin remove herald-notification
+omarchy plugin remove jesseburlamaque.herald-notification
 ```
 
 Then restart the shell:
@@ -69,17 +86,6 @@ omarchy restart shell
 - **Left-click** a notification to focus the source app or window
 - **Right-click** a notification to dismiss it
 - Use the header button to clear all visible notifications
-
-## Easter Eggs
-
-The Herald has a few surprises hidden up its sleeve:
-
-- **Click the panel title:** Open the notification panel and repeatedly click the **"Notifications"** header. The Herald will cycle through alternative titles for the royal dispatch.
-- **The Threshold Mystery:** Let your notifications pile up and watch how the Herald reacts. Some things are best discovered by using it.
-
-*Found something else? It might be a feature, or it might be the Herald playing tricks.*
-
-This project is a work in progress — I'd be happy to receive suggestions for improvements.
 
 ## License
 
