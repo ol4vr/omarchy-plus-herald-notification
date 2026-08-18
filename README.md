@@ -1,6 +1,8 @@
-# Herald Notification Center for Omarchy
+# Omarchy+ Herald Notification Center
 
 A clean notification center for the Omarchy shell. Click the bell icon to browse recent notifications and active toasts, focus the source app, or dismiss items individually.
+
+This is the Olav-owned Omarchy+ fork of [`jesseburlamaque/herald-notification`](https://github.com/jesseburlamaque/herald-notification). The fork began at upstream commit `73174b02843960e23a6396ea07469c409c415cf6`. Upstream is provenance and update evidence; this repository is the authoritative Omarchy+ source.
 
 ![Herald Notification Center](preview.png)
 
@@ -28,7 +30,7 @@ This project is a work in progress — I'd be happy to receive suggestions for i
 ## Install
 
 ```sh
-omarchy plugin add https://github.com/jesseburlamaque/herald-notification.git --enable
+omarchy plugin add https://github.com/ol4vr/omarchy-plus-herald-notification.git --enable
 ```
 
 Then restart the shell:
@@ -40,7 +42,7 @@ omarchy restart shell
 By default the bell icon is placed in the **center** section of the bar. If it does not land immediately to the left of the date/clock, drag it there with the bar's built-in gesture, or run:
 
 ```sh
-omarchy bar move jesseburlamaque.herald-notification --section center --index 2
+omarchy bar move io.github.ol4vr.herald-notification --section center --index 2
 ```
 
 (Adjust the index as needed depending on your other center widgets.)
@@ -57,8 +59,8 @@ omarchy > menu >  Disable Plugin > Herald Notification
 Or use the CLI:
 
 ```sh
-omarchy plugin enable jesseburlamaque.herald-notification
-omarchy plugin disable jesseburlamaque.herald-notification
+omarchy plugin enable io.github.ol4vr.herald-notification
+omarchy plugin disable io.github.ol4vr.herald-notification
 ```
 
 After enabling or disabling, restart the shell:
@@ -70,7 +72,7 @@ omarchy restart shell
 ## Remove
 
 ```sh
-omarchy plugin remove jesseburlamaque.herald-notification
+omarchy plugin remove io.github.ol4vr.herald-notification
 ```
 
 Then restart the shell:
@@ -86,6 +88,15 @@ omarchy restart shell
 - **Left-click** a notification to focus the source app or window
 - **Right-click** a notification to dismiss it
 - Use the header button to clear all visible notifications
+
+## Security boundaries
+
+- Runtime access is unprivileged and local; Herald has no network client or telemetry.
+- Persisted notification history is display-and-focus only. Stored `exec` values are never run.
+- Active popup actions are invoked only through Omarchy's first-party notification service.
+- History and image deletion accepts only numeric `<timestamp>-<id>` identities and uses direct argument arrays without a shell.
+- Clear-all and per-item removal remain explicit user actions scoped to Omarchy's notification service directories.
+- Upstream changes are never merged automatically; every update requires a new source and security review.
 
 ## License
 

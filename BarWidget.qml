@@ -8,7 +8,7 @@ import qs.Ui
 
 BarWidget {
   id: root
-  moduleName: "herald-notification"
+  moduleName: "omarchy-plus-herald-notification"
 
   readonly property var notificationService: bar?.shell?.firstPartyServiceFor("omarchy.notifications")
   readonly property int popupCount: notificationService?.popupModel?.count || 0
@@ -115,7 +115,7 @@ BarWidget {
   onSettingsChanged: root.ensurePanelReady()
 
   IpcHandler {
-    target: "herald-notification"
+    target: "omarchy-plus-herald-notification"
 
     function open(): void { if (panelLoader.item) panelLoader.item.open() }
     function close(): void { if (panelLoader.item) panelLoader.item.close() }
@@ -136,18 +136,15 @@ BarWidget {
   Process {
     id: historyCountProc
     running: false
-    command: ["bash", "-c", "ls -1 \"$1\"/*.json 2>/dev/null | wc -l", "--", root.historyDir]
+    command: ["find", root.historyDir, "-maxdepth", "1", "-type", "f", "-name", "*.json", "-printf", "."]
     stdout: StdioCollector {
-      onStreamFinished: {
-        var n = parseInt(text.trim(), 10)
-        root.historyCount = isNaN(n) ? 0 : n
-      }
+      onStreamFinished: root.historyCount = text.length
     }
   }
 
   Settings {
     id: heraldSettings
-    category: "herald-notification"
+    category: "omarchy-plus-herald-notification"
     property bool welcomeShown: false
   }
 

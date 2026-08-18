@@ -12,20 +12,41 @@ function historyEntry(value, normalUrgency) {
     body: e.body || "",
     image: e.image || "",
     glyph: e.glyph || "",
-    exec: e.exec || "",
     urgency: typeof e.urgency === "number" ? e.urgency : normalUrgency,
     expireTimeout: 0,
     timestamp: e.timestamp || 0
   }
 }
 
-function popupFileName(entry) {
-  return imageStem(entry) + ".json"
+function safeDecimalComponent(value) {
+  if (typeof value === "number") {
+    if (!isFinite(value) || value < 0 || Math.floor(value) !== value) return ""
+    return String(value)
+  }
+  var text = String(value === undefined || value === null ? "" : value)
+  return /^[0-9]+$/.test(text) ? text : ""
 }
 
 function imageStem(entry) {
   var e = entry || {}
-  return String(e.timestamp || 0) + "-" + String(e.originalId || 0)
+  var timestamp = safeDecimalComponent(e.timestamp)
+  var originalId = safeDecimalComponent(e.originalId)
+  return timestamp && originalId ? timestamp + "-" + originalId : ""
+}
+
+function popupFileName(entry) {
+  var stem = imageStem(entry)
+  return stem ? stem + ".json" : ""
+}
+
+function safeHistoryFileName(value) {
+  var text = String(value || "")
+  return /^[0-9]+-[0-9]+\.json$/.test(text) ? text : ""
+}
+
+function safeImageStem(value) {
+  var text = String(value || "")
+  return /^[0-9]+-[0-9]+$/.test(text) ? text : ""
 }
 
 function parsePopupFiles(raw, normalUrgency) {
@@ -36,7 +57,10 @@ function parsePopupFiles(raw, normalUrgency) {
     if (!line) continue
     try {
       var value = JSON.parse(line)
-      if (value && typeof value === "object") entries.push(historyEntry(value, normalUrgency))
+      if (value && typeof value === "object") {
+        var entry = historyEntry(value, normalUrgency)
+        if (popupFileName(entry)) entries.push(entry)
+      }
     } catch (e) {
       // Corrupted line; skip.
     }
@@ -174,8 +198,11 @@ function randomEmptyPhrase(defaultText) {
 if (typeof module !== "undefined") {
   module.exports = {
     historyEntry: historyEntry,
+    safeDecimalComponent: safeDecimalComponent,
     popupFileName: popupFileName,
     imageStem: imageStem,
+    safeHistoryFileName: safeHistoryFileName,
+    safeImageStem: safeImageStem,
     parsePopupFiles: parsePopupFiles,
     formatRelativeTime: formatRelativeTime,
     extractFirstHref: extractFirstHref,

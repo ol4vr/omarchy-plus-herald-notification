@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$root"
+
+python3 - <<'PY'
+import json
+import pathlib
+
+root = pathlib.Path.cwd()
+manifest = json.loads((root / "manifest.json").read_text())
+expected = {
+    "schemaVersion": 1,
+    "id": "io.github.ol4vr.herald-notification",
+    "name": "Omarchy+ Herald Notification Center",
+    "version": "1.1.0",
+    "author": "Olav Rorvik",
+    "license": "MIT",
+    "kinds": ["bar-widget"],
+}
+for key, value in expected.items():
+    if manifest.get(key) != value:
+        raise RuntimeError(f"manifest {key}: expected {value!r}, found {manifest.get(key)!r}")
+entry = manifest.get("entryPoints", {}).get("barWidget")
+if entry != "BarWidget.qml" or not (root / entry).is_file():
+    raise RuntimeError("owned bar-widget entry point is invalid")
+required = [
+    "BarWidget.qml", "NotificationListItem.qml", "NotificationLogic.js", "Panel.qml",
+    "README.md", "LICENSE", "manifest.json", "package.json",
+    "test/notification-logic.test.js", "test/security-contract.test.js",
+]
+for name in required:
+    if not (root / name).is_file():
+        raise RuntimeError(f"required source file is missing: {name}")
+PY
+
+node --check NotificationLogic.js
+node --test test/*.test.js
+
+if rg -n 'command: \["bash"|root\\.bar\\.run\\(entry\\.exec\\)|entry\\.exec && root\\.bar' BarWidget.qml Panel.qml; then
+  printf 'ERROR: prohibited runtime command surface detected.\n' >&2
+  exit 1
+fi
+
+omarchy plugin validate "$root"
+printf 'Herald owned validation: PASS\n'

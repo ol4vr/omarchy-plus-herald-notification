@@ -8,7 +8,7 @@ import "NotificationLogic.js" as NotificationLogic
 
 Panel {
   id: root
-  moduleName: "herald-notification"
+  moduleName: "omarchy-plus-herald-notification"
   ipcTarget: ""
   manageIpc: false
 
@@ -26,6 +26,7 @@ Panel {
   property double nowMs: Date.now()
   property string emptyStateText: "No notifications"
   property int titleIndex: 0
+  property string pendingImagePattern: ""
   readonly property var titleModel: ["Notifications", "Herald's Scroll", "Tidings", "Royal Dispatch"]
 
   readonly property color contentForeground: bar ? bar.foreground : Color.foreground
@@ -60,9 +61,11 @@ Panel {
     var entries = NotificationLogic.parsePopupFiles(raw, 1)
     root.historyNotifications = entries.map(function(e) {
       var title = root.resolveAppTitle(e)
+      var fileName = NotificationLogic.popupFileName(e)
+      if (!fileName) return null
       return {
         source: "history",
-        fileName: NotificationLogic.popupFileName(e),
+        fileName: fileName,
         app: e.app,
         appNamePrimary: title.primary,
         appNameSecondary: title.secondary,
@@ -71,11 +74,11 @@ Panel {
         body: e.body,
         image: e.image,
         glyph: e.glyph,
-        exec: e.exec,
+        exec: "",
         urgency: e.urgency,
         timestamp: e.timestamp
       }
-    })
+    }).filter(function(entry) { return entry !== null })
     historyLoading = false
   }
 
@@ -143,10 +146,10 @@ Panel {
   function activateEntry(entry) {
     if (!entry) return
     if (entry.source === "popup" && root.notificationService) {
+      // Active notification actions remain behind Omarchy's first-party service.
       root.notificationService.invokePopupDefault(entry.index)
-    } else if (entry.exec && root.bar) {
-      root.bar.run(entry.exec)
     } else if (root.notificationService) {
+      // Persisted history is display-and-focus only; never execute stored commands.
       root.focusEntry(entry)
     }
     root.close()
@@ -162,20 +165,20 @@ Panel {
   }
 
   function deleteHistoryEntry(fileName) {
-    if (!fileName || !root.historyDir) return
-    var stem = String(fileName).replace(/\.json$/, "")
-    deleteProc.command = [
-      "bash", "-c",
-      "rm -f \"$1/$2\" \"$3/$4\"-*",
-      "--", root.historyDir, fileName, root.imagesDir, stem
-    ]
+    if (!root.historyDir || !root.imagesDir || deleteProc.running || deleteImagesProc.running) return
+    var safeFileName = NotificationLogic.safeHistoryFileName(fileName)
+    if (!safeFileName) return
+    var stem = NotificationLogic.safeImageStem(safeFileName.slice(0, -5))
+    if (!stem) return
+    root.pendingImagePattern = stem + "-*"
+    deleteProc.command = ["rm", "-f", "--", root.historyDir + "/" + safeFileName]
     deleteProc.running = true
   }
 
   Process {
     id: readHistoryProc
     running: false
-    command: ["bash", "-c", "awk 1 \"$1\"/*.json 2>/dev/null || true", "--", root.historyDir]
+    command: ["find", root.historyDir, "-maxdepth", "1", "-type", "f", "-name", "*.json", "-exec", "awk", "1", "{}", "+"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: root.onHistoryRead(text)
@@ -185,7 +188,27 @@ Panel {
   Process {
     id: deleteProc
     running: false
-    onExited: root.refreshHistory()
+    onExited: {
+      if (!root.pendingImagePattern || !root.imagesDir) {
+        root.pendingImagePattern = ""
+        root.refreshHistory()
+        return
+      }
+      deleteImagesProc.command = [
+        "find", root.imagesDir, "-maxdepth", "1", "-type", "f",
+        "-name", root.pendingImagePattern, "-delete"
+      ]
+      deleteImagesProc.running = true
+    }
+  }
+
+  Process {
+    id: deleteImagesProc
+    running: false
+    onExited: {
+      root.pendingImagePattern = ""
+      root.refreshHistory()
+    }
   }
 
   Timer {
@@ -359,7 +382,6 @@ Panel {
               e.body = body
               e.image = image
               e.glyph = glyph
-              e.exec = exec
               e.urgency = urgency
               e.timestamp = timestamp
               popupEntry = e
