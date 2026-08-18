@@ -15,7 +15,7 @@ expected = {
     "schemaVersion": 1,
     "id": "io.github.ol4vr.herald-notification",
     "name": "Omarchy+ Herald Notification Center",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "author": "Olav Rorvik",
     "license": "MIT",
     "kinds": ["bar-widget"],

@@ -10,7 +10,7 @@ test("owned manifest identity is coherent", () => {
   const manifest = JSON.parse(read("manifest.json"))
   assert.equal(manifest.id, "io.github.ol4vr.herald-notification")
   assert.equal(manifest.name, "Omarchy+ Herald Notification Center")
-  assert.equal(manifest.version, "1.1.0")
+  assert.equal(manifest.version, "1.1.1")
   assert.equal(manifest.author, "Olav Rorvik")
   assert.deepEqual(manifest.kinds, ["bar-widget"])
   assert.equal(manifest.entryPoints.barWidget, "BarWidget.qml")
@@ -36,6 +36,15 @@ test("per-item deletion is validated and argument-safe", () => {
   assert.ok(panel.includes('["rm", "-f", "--", root.historyDir + "/" + safeFileName]'))
   assert.ok(panel.includes('"find", root.imagesDir'))
   assert.equal(panel.includes('"rm -f'), false)
+})
+
+test("panel title uses the owned bell glyph", () => {
+  const bar = read("BarWidget.qml")
+  const panel = read("Panel.qml")
+  assert.ok(bar.includes('text: "󰂚"'))
+  assert.ok(panel.includes("id: titleIcon"))
+  assert.ok(panel.includes('text: "󰂚"'))
+  assert.ok(panel.indexOf("id: titleIcon") < panel.indexOf("id: titleText"))
 })
 
 test("owned runtime namespace replaces upstream identity", () => {

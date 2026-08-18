@@ -281,12 +281,23 @@ Panel {
         height: Style.space(36)
 
         Text {
+          id: titleIcon
+          text: "󰂚"
+          color: root.contentForeground
+          font.family: root.contentFontFamily
+          font.pixelSize: Style.font.title
+          font.bold: true
+          Layout.alignment: Qt.AlignVCenter
+        }
+
+        Text {
           id: titleText
           text: root.titleModel[root.titleIndex]
           color: root.contentForeground
           font.family: root.contentFontFamily
           font.pixelSize: Style.font.title
           font.bold: true
+          Layout.alignment: Qt.AlignVCenter
 
           MouseArea {
             anchors.fill: parent
