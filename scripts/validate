@@ -7,6 +7,7 @@ cd "$root"
 python3 - <<'PY'
 import json
 import pathlib
+import stat
 
 root = pathlib.Path.cwd()
 manifest = json.loads((root / "manifest.json").read_text())
@@ -25,23 +26,46 @@ for key, value in expected.items():
 entry = manifest.get("entryPoints", {}).get("barWidget")
 if entry != "BarWidget.qml" or not (root / entry).is_file():
     raise RuntimeError("owned bar-widget entry point is invalid")
+runtime = [line.strip() for line in (root / "runtime-files.txt").read_text().splitlines() if line.strip()]
+expected_runtime = ["BarWidget.qml", "NotificationListItem.qml", "NotificationLogic.js", "Panel.qml", "manifest.json"]
+if runtime != expected_runtime:
+    raise RuntimeError(f"runtime allowlist mismatch: {runtime!r}")
 required = [
-    "BarWidget.qml", "NotificationListItem.qml", "NotificationLogic.js", "Panel.qml",
-    "README.md", "LICENSE", "manifest.json", "package.json",
+    *expected_runtime, "README.md", "LICENSE", "package.json", "runtime-files.txt",
+    "scripts/dev-deploy", "scripts/dev-remove", "scripts/validate",
     "test/notification-logic.test.js", "test/security-contract.test.js",
 ]
 for name in required:
-    if not (root / name).is_file():
-        raise RuntimeError(f"required source file is missing: {name}")
+    path = root / name
+    if not path.is_file() or path.is_symlink():
+        raise RuntimeError(f"required regular source file is missing: {name}")
+for name in ["scripts/dev-deploy", "scripts/dev-remove", "scripts/validate"]:
+    mode = stat.S_IMODE((root / name).stat().st_mode)
+    if mode != 0o755:
+        raise RuntimeError(f"{name} mode must be 0755, found {mode:04o}")
 PY
 
 node --check NotificationLogic.js
 node --test test/*.test.js
+bash -n scripts/dev-deploy scripts/dev-remove scripts/validate
 
-if rg -n 'command: \["bash"|root\\.bar\\.run\\(entry\\.exec\\)|entry\\.exec && root\\.bar' BarWidget.qml Panel.qml; then
+if rg -n 'command: \["bash"|root\.bar\.run\(entry\.exec\)|entry\.exec && root\.bar' BarWidget.qml Panel.qml; then
   printf 'ERROR: prohibited runtime command surface detected.\n' >&2
   exit 1
 fi
+for contract in \
+  'runtime-files.txt' \
+  '.omarchy-plus-development' \
+  'omarchy plugin validate "$staging"' \
+  'omarchy restart shell' \
+  'Notification history remains owned by Omarchy outside the plugin directory'; do
+  rg -Fq "$contract" scripts/dev-deploy scripts/dev-remove || {
+    printf 'ERROR: development tooling contract missing: %s\n' "$contract" >&2
+    exit 1
+  }
+done
 
 omarchy plugin validate "$root"
+scripts/dev-deploy --check
+scripts/dev-remove --check
 printf 'Herald owned validation: PASS\n'

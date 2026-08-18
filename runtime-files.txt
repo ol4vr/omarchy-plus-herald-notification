@@ -1,0 +1,5 @@
+BarWidget.qml
+NotificationListItem.qml
+NotificationLogic.js
+Panel.qml
+manifest.json

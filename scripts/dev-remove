@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+id="io.github.ol4vr.herald-notification"
+target="/home/ol4vr/.config/omarchy/plugins/$id"
+plugins_root=$(dirname "$target")
+marker="$target/.omarchy-plus-development"
+mode=${1:-remove}
+backup=""
+was_enabled=0
+moved=0
+
+fail() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+recognize_target() {
+  [[ ! -L "$target" ]] || fail "development target is a symlink: $target"
+  [[ -d "$target" ]] || fail "development target is not a directory: $target"
+  [[ -f "$marker" ]] || fail "target is not marker-owned: $target"
+  grep -Fxq "schema=1" "$marker" || fail "development marker schema mismatch"
+  grep -Fxq "id=$id" "$marker" || fail "development marker identity mismatch"
+  grep -Fxq "source=$root" "$marker" || fail "development marker source mismatch"
+  [[ $(jq -r .id "$target/manifest.json") == "$id" ]] || fail "target manifest identity mismatch"
+}
+
+if [[ ! -e "$target" && ! -L "$target" ]]; then
+  printf 'Herald development target is absent: %s\n' "$target"
+  printf 'Herald development removal check: PASS\n'
+  exit 0
+fi
+recognize_target
+printf 'Recognized removable target: %s\n' "$target"
+if [[ "$mode" == "--check" ]]; then
+  printf 'Herald development removal check: PASS\n'
+  exit 0
+fi
+[[ "$mode" == "remove" ]] || fail "usage: scripts/dev-remove [--check]"
+[[ $(id -un) == "ol4vr" ]] || fail "development removal must run as ol4vr"
+for command_name in jq omarchy; do
+  command -v "$command_name" >/dev/null 2>&1 || fail "required command is unavailable: $command_name"
+done
+
+entry=$(omarchy plugin list --json | jq -c --arg id "$id" 'first(.[] | select(.id == $id)) // empty')
+if [[ -n "$entry" ]] && jq -e '(.enabled // .isEnabled // false) == true' <<<"$entry" >/dev/null; then
+  was_enabled=1
+fi
+
+rollback() {
+  local code=$?
+  set +e
+  if [[ $moved == 1 && -d "$backup" && ! -e "$target" && ! -L "$target" ]]; then
+    mv -- "$backup" "$target"
+  fi
+  if [[ $was_enabled == 1 ]]; then
+    omarchy plugin enable "$id" >/dev/null 2>&1
+  fi
+  printf 'ERROR: Herald development removal rolled back (code %s).\n' "$code" >&2
+  exit "$code"
+}
+trap rollback ERR
+
+if [[ $was_enabled == 1 ]]; then
+  omarchy plugin disable "$id"
+fi
+
+backup=$(mktemp -d "$plugins_root/.${id}.remove.XXXXXXXX")
+rmdir "$backup"
+mv -- "$target" "$backup"
+moved=1
+omarchy restart shell
+rm -rf -- "$backup"
+backup=""
+moved=0
+trap - ERR
+
+printf 'Herald development copy removed and shell restarted.\n'
+printf 'Notification history remains owned by Omarchy outside the plugin directory and was not changed.\n'

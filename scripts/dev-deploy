@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+id="io.github.ol4vr.herald-notification"
+target="/home/ol4vr/.config/omarchy/plugins/$id"
+plugins_root=$(dirname "$target")
+marker="$target/.omarchy-plus-development"
+mode=${1:-deploy}
+staging=""
+backup=""
+installed=0
+
+fail() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+recognize_target() {
+  [[ ! -L "$target" ]] || fail "development target is a symlink: $target"
+  [[ -d "$target" ]] || fail "development target is not a directory: $target"
+  [[ -f "$marker" ]] || fail "target is not marker-owned: $target"
+  grep -Fxq "schema=1" "$marker" || fail "development marker schema mismatch"
+  grep -Fxq "id=$id" "$marker" || fail "development marker identity mismatch"
+  grep -Fxq "source=$root" "$marker" || fail "development marker source mismatch"
+  [[ $(jq -r .id "$target/manifest.json") == "$id" ]] || fail "target manifest identity mismatch"
+}
+
+check_boundary() {
+  if [[ -e "$target" || -L "$target" ]]; then
+    recognize_target
+    printf 'Recognized marker-owned development target: %s\n' "$target"
+  else
+    printf 'Development target is currently absent: %s\n' "$target"
+  fi
+}
+
+if [[ "$mode" == "--check" ]]; then
+  check_boundary
+  printf 'Herald development deployment check: PASS\n'
+  exit 0
+fi
+[[ "$mode" == "deploy" ]] || fail "usage: scripts/dev-deploy [--check]"
+[[ $(id -un) == "ol4vr" ]] || fail "development deployment must run as ol4vr"
+for command_name in git jq python3 omarchy; do
+  command -v "$command_name" >/dev/null 2>&1 || fail "required command is unavailable: $command_name"
+done
+[[ $(git -C "$root" branch --show-current) == "feature/owned-plugin-platform" ]] || fail "wrong source branch"
+"$root/scripts/validate"
+check_boundary
+
+mkdir -p "$plugins_root"
+staging=$(mktemp -d "$plugins_root/.${id}.staging.XXXXXXXX")
+rollback() {
+  local code=$?
+  set +e
+  if [[ -n "$backup" && -d "$backup" ]]; then
+    if [[ -e "$target" || -L "$target" ]]; then
+      rm -rf -- "$target"
+    fi
+    mv -- "$backup" "$target"
+  elif [[ $installed == 1 && -d "$target" && ! -L "$target" && -f "$marker" ]] &&
+       grep -Fxq "schema=1" "$marker" &&
+       grep -Fxq "id=$id" "$marker" &&
+       grep -Fxq "source=$root" "$marker"; then
+    rm -rf -- "$target"
+  fi
+  [[ -z "$staging" || ! -e "$staging" ]] || rm -rf -- "$staging"
+  printf 'ERROR: Herald development deployment rolled back (code %s).\n' "$code" >&2
+  exit "$code"
+}
+trap rollback ERR
+
+python3 - "$root" "$staging" <<'PY'
+import pathlib
+import shutil
+import sys
+
+root = pathlib.Path(sys.argv[1])
+staging = pathlib.Path(sys.argv[2])
+entries = [line.strip() for line in (root / "runtime-files.txt").read_text().splitlines() if line.strip()]
+expected = ["BarWidget.qml", "NotificationListItem.qml", "NotificationLogic.js", "Panel.qml", "manifest.json"]
+if entries != expected:
+    raise RuntimeError(f"runtime allowlist mismatch: {entries!r}")
+for name in entries:
+    relative = pathlib.PurePosixPath(name)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise RuntimeError(f"unsafe runtime path: {name}")
+    source = root / name
+    if not source.is_file() or source.is_symlink():
+        raise RuntimeError(f"runtime source is missing or a symlink: {name}")
+    destination = staging / name
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, destination, follow_symlinks=False)
+PY
+
+source_commit=$(git -C "$root" rev-parse HEAD)
+printf 'schema=1\nid=%s\nsource=%s\nbranch=%s\ncommit=%s\n' \
+  "$id" "$root" "feature/owned-plugin-platform" "$source_commit" \
+  > "$staging/.omarchy-plus-development"
+omarchy plugin validate "$staging"
+
+if [[ -e "$target" || -L "$target" ]]; then
+  recognize_target
+  backup=$(mktemp -d "$plugins_root/.${id}.backup.XXXXXXXX")
+  rmdir "$backup"
+  mv -- "$target" "$backup"
+fi
+mv -- "$staging" "$target"
+staging=""
+installed=1
+omarchy restart shell
+[[ -z "$backup" || ! -e "$backup" ]] || rm -rf -- "$backup"
+backup=""
+installed=0
+trap - ERR
+
+printf 'Herald development copy deployed and shell restarted.\n'
+printf 'Source: %s\nTarget: %s\nBranch: feature/owned-plugin-platform\nCommit: %s\n' "$root" "$target" "$source_commit"
+printf '\nEnable manually:\n  omarchy plugin enable %s\n' "$id"
+printf 'Inspect:\n  omarchy plugin list --json | jq --arg id %q '\''.[] | select(.id == $id)'\''\n' "$id"
+printf 'Remove development copy:\n  %s/scripts/dev-remove\n' "$root"
