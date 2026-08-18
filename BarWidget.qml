@@ -148,7 +148,7 @@ BarWidget {
   Settings {
     id: heraldSettings
     category: "herald-notification"
-    property double lastWelcomeTimestamp: 0
+    property bool welcomeShown: false
   }
 
   Process {
@@ -158,10 +158,9 @@ BarWidget {
   }
 
   Component.onCompleted: {
-    var now = Date.now()
-    if (now - heraldSettings.lastWelcomeTimestamp > 30000) {
+    if (!heraldSettings.welcomeShown) {
       welcomeProc.running = true
-      heraldSettings.lastWelcomeTimestamp = now
+      heraldSettings.welcomeShown = true
     }
     if (root.totalCount >= 7) root.tidingsThresholdShown = true
     if (root.totalCount >= 11) root.proclamationsThresholdShown = true
